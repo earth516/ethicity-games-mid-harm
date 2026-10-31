@@ -5,7 +5,8 @@
 - `bg/` 폴더에 정해진 이름의 배경 이미지를 넣으면 자동으로 적용됩니다. 없는 장면은 기본판 그림으로 보입니다.
 - 이미지 프롬프트와 파일 이름은 `이미지_프롬프트.md`에 있습니다.
 - 인물은 기본판과 같은 픽셀 캐릭터(`images/`)를 씁니다.
-- 효과음: 알림·10초 초재기·단서 찾음·확산 경고·1교시 종 등. 파일 없이 브라우저에서 만듭니다. 오른쪽 위 **🔊 소리** 버튼으로 끌 수 있고, 그 기기에서 설정이 기억됩니다.
+- 효과음: 알림·10초 초재기·단서 찾음·확산 경고·1교시 종 등. 파일 없이 브라우저에서 만듭니다. 오른쪽 위 **🔊 효과음** 버튼으로 끌 수 있습니다.
+- 배경음악: `bgm/` 폴더의 title·sad·tense·hope.mp3를 장면에 맞춰 바꿔 틉니다. 작은 소리로 시작하고, 첫 터치 뒤에 나옵니다(브라우저 정책). **🎵 음악** 버튼으로 따로 끌 수 있고, 10초 반응 중에는 음악이 작아집니다. 곡이 없으면 건너뜁니다.
 - 수업에는 **실감판만** GitHub에 올립니다.
 
 ## GitHub에 올릴 파일 (실감판)
@@ -19,6 +20,7 @@ images/              캐릭터 8장 (png 전부)
 bg/                  title.webp, street.webp, bedroom.webp, corridor.webp, lab-wall.webp, classroom-front.webp
                      (엔딩 배경을 넣었다면 ending-a, ending-b, ending-c 도)
 props/               window.png, board.png, poster.png, clock.png, shelf.png, pot.png, hairpin.png
+bgm/                 title.mp3, sad.mp3, tense.mp3, hope.mp3 (넣었다면)
 ```
 
 - 올리지 않아도 되는 파일: `bg/`의 `.png` 원본들, `props/props-sheet.png`, `props/lab.png`, 안내용 `.txt`, `이미지_프롬프트.md`

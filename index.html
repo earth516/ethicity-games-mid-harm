@@ -471,7 +471,7 @@ body.demo-on .hud::after { content: "교사 데모"; font-family: var(--f-displa
 <div id="backdrop" aria-hidden="true"></div>
 <div id="app">
   <header class="hud">
-    <div class="brand-title"><span class="series">윤리시티 · AI 윤리 탐험대</span><span class="ep">침해금지 · 37개의 알림 <span class="badge sky" style="font-size:13px">실감판</span> <span class="player" id="player" hidden></span></span></div>
+    <div class="brand-title"><span class="series">윤리시티 · AI 윤리 탐험대</span><span class="ep">침해금지 · 37개의 알림 <span class="player" id="player" hidden></span></span></div>
     <div class="pips" id="pips" aria-label="진행 단계"></div>
   </header>
   <main id="stage" aria-live="polite"></main>
@@ -588,13 +588,58 @@ function sfx(name) {
 }
 function soundBtn() {
   const b = document.createElement("button"); b.id = "soundBtn"; b.className = "sound-btn";
-  const set = () => { b.textContent = SOUND ? "🔊 소리" : "🔇 소리 끔"; b.setAttribute("aria-pressed", !SOUND); };
+  const set = () => { b.textContent = SOUND ? "🔊 효과음" : "🔇 효과음 끔"; b.setAttribute("aria-pressed", !SOUND); };
   set(); b.onclick = () => { SOUND = !SOUND; try { localStorage.setItem("ethicity.nonmaleficence.sound", SOUND ? "on" : "off"); } catch (e) {} set(); if (SOUND) sfx("press"); };
   $(".hud").appendChild(b);
 }
 document.addEventListener("pointerdown", () => audio(), { once: true });
 
-function go(n) { clearTimers(); if (typeof hallStop === "function") hallStop(); $$(".toast").forEach(x => x.remove()); S.scene = n; pips(); applyBackdrop(); window.scrollTo({ top: 0 }); SCENES[n](); }
+/* ---------- 배경음악: bgm 폴더의 mp3를 장면에 맞춰 바꿔 튼다 (없으면 조용히 건너뜀) ---------- */
+const BGM_VOL = 0.22;
+const BGM_SCENE = ["title", "title", "title", "sad", "tense", "hope", "hope", "hope"];
+let MUSIC = true; try { MUSIC = localStorage.getItem("ethicity.nonmaleficence.music") !== "off"; } catch (e) {}
+const BGM = { el: {}, cur: null, duck: 1, unlocked: false, missing: {} };
+function bgmTrack(name) {
+  if (BGM.missing[name]) return null;
+  if (!BGM.el[name]) {
+    const a = new Audio(); a.loop = true; a.preload = "auto"; a.volume = 0;
+    const exts = ["mp3", "m4a", "mp4", "ogg"]; let i = 0;
+    a.addEventListener("error", () => { i++; if (i < exts.length) { a.src = `bgm/${name}.${exts[i]}`; } else { BGM.missing[name] = true; } });
+    a.src = `bgm/${name}.${exts[0]}`;
+    BGM.el[name] = a;
+  }
+  return BGM.el[name];
+}
+function bgmFade(a, to, ms = 900, then) {
+  if (!a) return; clearInterval(a._f);
+  const from = a.volume, t0 = Date.now();
+  a._f = setInterval(() => { const k = Math.min(1, (Date.now() - t0) / ms); try { a.volume = Math.max(0, Math.min(1, from + (to - from) * k)); } catch (e) {} if (k >= 1) { clearInterval(a._f); if (then) then(); } }, 50);
+}
+function bgmFor(scene) {
+  let name = BGM_SCENE[scene] || null;
+  if (scene === 6 && typeof ending === "function" && S.nodes && S.nodes.length && ending() === "C") name = "sad";
+  return name;
+}
+function bgmUpdate() {
+  if (!BGM.unlocked) return;
+  const name = MUSIC ? bgmFor(S.scene) : null;
+  if (name === BGM.cur) { const a = BGM.el[name]; if (a) bgmFade(a, BGM_VOL * BGM.duck, 400); return; }
+  const old = BGM.cur && BGM.el[BGM.cur];
+  if (old) bgmFade(old, 0, 700, () => old.pause());
+  BGM.cur = name;
+  const a = name && bgmTrack(name);
+  if (a) { a.volume = 0; const p = a.play(); if (p && p.catch) p.catch(() => {}); bgmFade(a, BGM_VOL * BGM.duck, 1200); }
+}
+function bgmDuck(on) { BGM.duck = on ? 0.45 : 1; bgmUpdate(); }
+document.addEventListener("pointerdown", () => { if (!BGM.unlocked) { BGM.unlocked = true; bgmUpdate(); } }, { capture: true });
+function musicBtn() {
+  const b = document.createElement("button"); b.id = "musicBtn"; b.className = "sound-btn";
+  const set = () => { b.textContent = MUSIC ? "🎵 음악" : "🎵 음악 끔"; b.setAttribute("aria-pressed", !MUSIC); };
+  set(); b.onclick = () => { MUSIC = !MUSIC; try { localStorage.setItem("ethicity.nonmaleficence.music", MUSIC ? "on" : "off"); } catch (e) {} set(); BGM.unlocked = true; bgmUpdate(); };
+  $(".hud").appendChild(b);
+}
+
+function go(n) { clearTimers(); if (typeof hallStop === "function") hallStop(); $$(".toast").forEach(x => x.remove()); S.scene = n; pips(); applyBackdrop(); BGM.duck = 1; bgmUpdate(); window.scrollTo({ top: 0 }); SCENES[n](); }
 const av = k => `<div class="av"><img src="${IMG[k]}" alt=""></div>`;
 const bub = (k, text, cls = "") => `<div class="bub ${k === "me" ? "me" : ""} ${cls}">${k === "me" ? "" : av(k)}<div class="col">${k === "me" ? "" : `<span class="nm">${NAMES[k]}</span>`}<div class="tx">${text}</div></div></div>`;
 /* 과학실 장면: 단톡방 합성 영상과 2장의 멈춘 장면이 같은 그림을 쓴다 */
@@ -636,7 +681,7 @@ function sTitle() {
       <div class="eyebrow" style="color:var(--yolk)">AI 윤리 탐험대 · 침해금지 편</div>
       <h1><em>37개</em>의<br>알림</h1>
       <p class="lead">단톡방에 친구 얼굴로 만든 AI 합성 영상이 올라왔다. 내가 10초 안에 누른 버튼은 친구의 다음 날 아침을 어떻게 바꿀까?</p>
-      <div class="row"><button class="btn" id="start">탐험 시작</button><span class="hint" style="color:var(--mute)">약 17분 · 1인 1기기</span></div>
+      <div class="row"><button class="btn" id="start">탐험 시작</button></div>
     </div>
     <div class="crew">${["junseo", "younghee", "guide", "me", "seoa"].map(k => `<img class="sprite" src="${IMG[k]}" alt="">`).join("")}</div>
   </section>`;
@@ -719,6 +764,7 @@ function sTen() {
   later(startTimer, 5200);
 
   function startTimer() {
+    bgmDuck(true);
     $("#tbar").hidden = false; $("#acts").hidden = false; $("#rule").hidden = false;
     try { $("#acts").scrollIntoView({ behavior: "smooth", block: "nearest" }); } catch (e) {}
     $("#sit").innerHTML = "<b>지금 너라면?</b> 10초 안에 반응하세요.";
@@ -750,7 +796,7 @@ function sTen() {
   }
   let done = false;
   function finish(skipped) {
-    if (done) return; done = true; clearTimers();
+    if (done) return; done = true; clearTimers(); bgmDuck(false);
     if ($("#pk")) $("#pk").remove();
     R.timedOut = !skipped && !R.fwd && !R.like && !R.save && !R.stop;
     $$("#acts .act").forEach(b => b.disabled = true);
@@ -1559,7 +1605,7 @@ function demoPanel() {
 
 const SCENES = [sTitle, sPrologue, sTen, sYounghee, sUndo, sAsk, sEnding, sCases];
 preloadBG(); preloadProps();
-soundBtn();
+soundBtn(); musicBtn();
 if (DEMO) { document.body.classList.add("demo-on"); demoPanel(); }
 go(0);
 </script>
