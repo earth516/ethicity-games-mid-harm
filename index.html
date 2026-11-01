@@ -351,6 +351,12 @@ body.photo-lab .lab { background: var(--labbg) center / cover; }
 .ap i { width: 22px; height: 28px; border: 3px solid var(--ink); background: var(--yolk); display: block; }
 .ap i.used { background: var(--paper-2); }
 .turninfo { font-family: var(--f-code); font-size: 13px; }
+.spreadinfo { font-family: var(--f-display); font-size: 15px; padding: 3px 10px; border: 2px solid var(--ink); background: #fff7e6; white-space: nowrap; }
+.spreadinfo.hot { background: #fde4e0; border-color: #d94a3a; color: #b3261e; animation: spreadPulse 1.2s ease-in-out infinite; }
+@keyframes spreadPulse { 50% { box-shadow: 0 0 0 4px rgba(217,74,58,.25); } }
+.stopask { border-color: #c98a12 !important; background: #fff7e6 !important; }
+.leftlist { margin: 10px 0 0; padding: 10px 14px; border: 2px dashed var(--ink); background: #fff; }
+.leftlist li { margin: 2px 0; }
 .map { position: relative; height: 420px; background: #fff; border: 4px solid var(--ink); overflow: hidden;
   background-image: linear-gradient(rgba(19,32,26,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(19,32,26,.06) 1px, transparent 1px); background-size: 24px 24px; }
 .map svg { position: absolute; inset: 0; width: 100%; height: 100%; }
@@ -491,7 +497,7 @@ const blank = () => ({
   scene: 0, student: null,
   r: { fwd: null, like: false, save: false, stop: false, timedOut: false },
   notiCleared: 0, help: null, triedDelete: false, reported: false, clues: [], miss: 0,
-  nodes: [], reqs: 0, turn: 0, ap: 6, teacher: false, skipSpread: false, log: [], sel: null, mapDone: false,
+  nodes: [], reqs: 0, reports: 0, stopAsk: false, turn: 0, ap: 6, teacher: false, skipSpread: false, log: [], sel: null, mapDone: false,
   ask: null, postPick: null, phraseTries: 0, Q: false, M: false,
   caseId: null, refl: {}
 });
@@ -1230,7 +1236,7 @@ function spread() {
 function endTurn() {
   const t = S.turn;
   S.nodes.forEach(n => {
-    if (n.pendingAt !== null && n.pendingAt <= t && n.state === "yellow") { n.state = "green"; n.note = "삭제 완료"; S.log.push([t, `${n.label}: 삭제 완료 ✅`]); n.pendingAt = null; sfx("done"); }
+    if (n.pendingAt !== null && n.pendingAt <= t && n.state === "yellow") { n.state = "green"; n.how = "req"; n.note = "삭제 완료"; S.log.push([t, `${n.label}: 삭제 완료 ✅`]); n.pendingAt = null; sfx("done"); }
     if (n.reportAt !== null && t - n.reportAt >= 2 && n.note === "신고 접수됨") { n.note = "신고 검토 중"; }
   });
   if (t === 2 || t === 4) {
@@ -1266,8 +1272,16 @@ function actionsFor(n) {
   return A;
 }
 function sUndo() {
-  if (!S.mapDone && !S.nodes.length) { S.nodes = initNodes(); S.turn = 0; S.ap = 6; S.log = [[0, "1교시까지 행동력 6칸"]]; if (S.r.stop) S.log.push([0, "어제 10초 안에 준서에게 지워 달라고 말해 두었다"]); S.teacher = false; S.skipSpread = false; }
+  if (!S.mapDone && !S.nodes.length) { S.nodes = initNodes(); S.turn = 0; S.ap = 6; S.log = [[0, "1교시까지 행동력 6칸"]]; if (S.r.stop) S.log.push([0, "어제 10초 안에 준서에게 지워 달라고 말해 두었다"]); S.teacher = false; S.skipSpread = false; S.reports = 0; S.stopAsk = false; }
   renderMap();
+}
+function nextSpread() { return [2, 4].find(t => t > S.turn) || 0; }
+function spreadInfo() {
+  if (S.mapDone || S.ap <= 0) return "";
+  const t = nextSpread();
+  if (!t) return `<span class="spreadinfo">더 퍼지지 않음 · 종까지 ${6 - S.turn}턴</span>`;
+  const k = t - S.turn;
+  return `<span class="spreadinfo ${k === 1 && !S.skipSpread ? "hot" : ""}">${S.skipSpread ? "🛡 다음 확산은 선생님 공지로 막힘" : `⚠ 다음 확산까지 ${k}턴`}</span>`;
 }
 function renderMap() {
   const N = S.nodes;
@@ -1277,8 +1291,8 @@ function renderMap() {
   stage.innerHTML = `<div class="scene wide"><section class="panel">
     <div class="eyebrow">장면 4 · 3장 되돌리기</div>
     <div class="maptop"><h2 style="margin:0">확산 지도</h2>
-      <div class="row"><div class="ap" aria-label="행동력 ${S.ap}칸 남음">행동력 ${[0, 1, 2, 3, 4, 5].map(i => `<i class="${i < 6 - S.ap ? "used" : ""}"></i>`).join("")}</div><span class="turninfo">TURN ${S.turn}/6</span></div></div>
-    <p class="hint" style="margin-top:6px">점을 눌러 할 수 있는 일을 고르세요. 카드 하나에 행동력 1칸이 들고, <b>2턴과 4턴이 끝날 때</b> 빨간 점에서 영상이 더 퍼져요.</p>
+      <div class="row"><div class="ap" aria-label="행동력 ${S.ap}칸 남음">행동력 ${[0, 1, 2, 3, 4, 5].map(i => `<i class="${i < 6 - S.ap ? "used" : ""}"></i>`).join("")}</div><span class="turninfo">TURN ${S.turn}/6</span>${spreadInfo()}</div></div>
+    <p class="hint" style="margin-top:6px">점을 눌러 할 수 있는 일을 고르세요. 카드 하나를 쓰면 <b>행동력 1칸이 줄고 1턴이 지나요</b>. <b>2턴과 4턴이 끝날 때</b> 빨간 점에서 영상이 더 퍼지고, 6턴이 끝나면 1교시 종이 울려요.</p>
     <div class="legend" style="margin-bottom:8px"><span><i style="background:#fde4e0;border-color:#d94a3a"></i>퍼지는 중</span><span><i style="background:#f9eeda;border-color:#c98a12"></i>요청·신고 접수 (아직 남아 있음)</span><span><i style="background:#e5f4e4;border-color:#4f9d5b"></i>삭제 완료</span></div>
     <div class="mapgrid">
       <div class="map" id="map"><svg aria-hidden="true">${lines}</svg>
@@ -1289,13 +1303,16 @@ function renderMap() {
         ${finished ? "" : `<button class="choice" id="tch" ${S.teacher ? "disabled" : ""}><b>${S.teacher ? "✅ 선생님께 알림" : "담임 선생님께 알리기"}</b><span>${S.teacher ? "다음 확산 1번을 막았어요" : "행동력 1칸 · 반에 '전달 멈추기' 공지 → 다음 확산 1번 건너뜀"}</span></button>`}
         <div class="log" id="log" aria-label="기록">${S.log.slice().reverse().map(([t, m]) => `<div><b>T${t}</b>${esc(m)}</div>`).join("")}</div>
         ${finished ? `<div class="detail"><b style="font-family:var(--f-display);font-size:20px">${S.ap <= 0 ? "🔔 1교시 종이 울렸다" : "되돌리기를 마쳤다"}</b><span>아직 남은 점: <b>${remaining()}개</b> (노랑도 남은 것으로 셉니다)</span></div>
-          <button class="btn" id="fin">교실 앞으로 ▶</button>` : `<button class="btn ${remaining() === 0 ? "" : "ghost"} small" id="stop">${remaining() === 0 ? "다 지웠다! 종 칠 때까지 기다리기 ▶" : "남은 행동력 쓰지 않고 기다리기"}</button>`}
+          <button class="btn" id="fin">교실 앞으로 ▶</button>` : `${S.stopAsk ? `<div class="detail stopask"><b style="font-family:var(--f-display);font-size:19px">정말 기다릴까요?</b><span>행동력이 <b>${S.ap}칸</b> 남았어요. 기다리는 동안에도 턴은 지나가요.${nextSpread() ? ` <b>${nextSpread() - S.turn}턴 뒤</b>에 빨간 점에서 영상이 또 퍼질 수 있어요.` : ""}</span><div class="row" style="margin-top:8px"><button class="btn small" id="keep">◀ 더 해 볼게요</button><button class="btn ghost small" id="stopYes">그래도 기다리기</button></div></div>` : `<button class="btn ${remaining() === 0 ? "" : "ghost"} small" id="stop">${remaining() === 0 ? "다 지웠다! 종 칠 때까지 기다리기 ▶" : "남은 행동력 쓰지 않고 기다리기"}</button>`}`}
       </div>
     </div>
   </section></div>`;
-  $$("#map .node").forEach(b => b.onclick = () => { if (finished) return; S.sel = b.dataset.id; renderMap(); });
+  $$("#map .node").forEach(b => b.onclick = () => { if (finished) return; S.sel = b.dataset.id; S.stopAsk = false; renderMap(); });
   if ($("#tch")) $("#tch").onclick = () => { if (S.teacher) return; S.teacher = true; S.skipSpread = true; act(`담임 선생님께 알림 → 반에 '전달 멈추기' 공지`); };
-  if ($("#stop")) $("#stop").onclick = () => { S.log.push([S.turn, "남은 시간은 그냥 기다리기로 했다"]); while (S.turn < 6) { S.turn++; S.ap--; endTurn(); } S.ap = 0; S.mapDone = true; S.sel = null; renderMap(); };
+  const doStop = () => { S.stopAsk = false; S.log.push([S.turn, "남은 시간은 그냥 기다리기로 했다"]); while (S.turn < 6) { S.turn++; S.ap--; endTurn(); } S.ap = 0; S.mapDone = true; S.sel = null; renderMap(); };
+  if ($("#stop")) $("#stop").onclick = () => { if (remaining() === 0 || S.ap <= 0) return doStop(); S.stopAsk = true; renderMap(); };
+  if ($("#stopYes")) $("#stopYes").onclick = doStop;
+  if ($("#keep")) $("#keep").onclick = () => { S.stopAsk = false; renderMap(); };
   if ($("#fin")) $("#fin").onclick = () => { S.mapDone = true; go(5); };
   bindSide(sel);
   N.forEach(n => n.isNew = false);
@@ -1311,8 +1328,8 @@ function bindSide(n) {
   if (!n) return;
   $$("#side .acts .choice").forEach(b => b.onclick = () => {
     const a = b.dataset.a;
-    if (a === "undo") { n.state = "green"; n.note = "삭제 완료"; sfx("done"); act(`${n.label}: 내가 바로 지움 ✅`); return; }
-    if (a === "report") { S.reqs++; n.state = "yellow"; n.note = "신고 접수됨"; n.reportAt = S.turn + 1; act(`${n.label}: 플랫폼에 신고 → 접수됨 (삭제 완료 아님)`); return; }
+    if (a === "undo") { n.state = "green"; n.how = "self"; n.note = "삭제 완료"; sfx("done"); act(`${n.label}: 내가 바로 지움 ✅`); return; }
+    if (a === "report") { S.reqs++; S.reports++; n.state = "yellow"; n.note = "신고 접수됨"; n.reportAt = S.turn + 1; act(`${n.label}: 플랫폼에 신고 → 접수됨 (삭제 완료 아님)`); return; }
     if (a.startsWith("req:")) {
       const k = a.slice(4);
       $("#phr").innerHTML = `<div class="eyebrow" style="margin-top:8px">${PEOPLE[k].name}에게 보낼 말</div><div style="display:grid;gap:8px">${PHRASES.map(p => `<button class="choice" data-p="${p.id}"><b style="font-size:17px">"${esc(p.t)}"</b></button>`).join("")}</div>`;
@@ -1327,7 +1344,7 @@ function bindSide(n) {
   });
 }
 function act(msg) {
-  S.ap--; S.turn++;
+  S.stopAsk = false; S.ap--; S.turn++;
   S.log.push([S.turn, msg]);
   endTurn();
   if (S.ap <= 0) S.sel = null;
@@ -1393,6 +1410,23 @@ const ENDINGS = {
   B: { t: "먼저 물어볼 한마디", img: "younghee", q: "영상은 대부분 지워졌어요. 그런데 반 단톡방에 올라간 해명 글 때문에 영희의 이름이 다시 오르내렸어요. 영희는 \"고마운데… 나한테 먼저 물어봐 주지\"라고 말했어요.", guide: "영상은 지웠지만, 영희가 원한 방식은 아니었어요.", ask: "피해자를 돕겠다고 한 행동이 오히려 피해자를 힘들게 할 수 있을까? 왜 당사자의 뜻을 먼저 들어야 할까?" },
   C: { t: "아직 남은 알림", img: "younghee", q: "1교시가 시작됐지만 영희의 휴대폰은 계속 울려요. 요청은 보냈고 신고도 접수됐지만, 어딘가에서는 아직 영상이 돌고 있어요. 영희는 수업 내내 고개를 들지 못했어요.", guide: "요청은 보냈지만 아직 어딘가에서 영상이 돌고 있어요.", ask: "'요청을 보낸 것'과 '지워진 것'은 왜 다를까? 처음 10초에 무엇을 했다면 지금이 달라졌을까?" }
 };
+function endingText(e) {
+  const E = ENDINGS[e];
+  if (e !== "C") return { q: E.q, guide: E.guide };
+  const req = S.reqs - S.reports > 0, rep = S.reports > 0;
+  const did = req && rep ? "삭제 요청도 보내고 신고도 접수됐지만, " : req ? "삭제 요청은 보냈지만, " : rep ? "신고는 접수됐지만, " : "";
+  return {
+    q: `1교시가 시작됐지만 영희의 휴대폰은 계속 울려요. ${did}어딘가에서는 아직 영상이 돌고 있어요. 영희는 수업 내내 고개를 들지 못했어요.`,
+    guide: req || rep ? "요청과 신고는 '접수'일 뿐, 아직 어딘가에서 영상이 돌고 있어요." : "아무도 지워 달라고 하지 않은 곳에서 영상이 계속 돌고 있어요."
+  };
+}
+function leftNote(n) {
+  if (n.state === "red") return n.kind === "new" ? "퍼지는 중 · 누가 올렸는지 몰라 삭제를 요청할 사람이 없음" : "퍼지는 중 · 아무도 지워 달라고 하지 않음";
+  if (n.note === "요청 수락 · 곧 지움" || n.note === "어제 요청함 · 곧 지움") return "지우겠다고 했지만 종이 울릴 때까지 아직 안 지움";
+  if (n.note.startsWith("읽음")) return "요청을 읽기만 하고 지우지 않음";
+  if (n.note.startsWith("신고")) return "신고 접수 · 플랫폼이 아직 검토 중";
+  return n.note || "아직 남아 있음";
+}
 function ending() {
   const R = remaining();
   if (R >= 2) return "C";
@@ -1420,20 +1454,23 @@ function sEnding() {
   sfx("end");
   const e = ending(), E = ENDINGS[e];
   const mine = (S.r.like ? 2 : 0) + (S.r.fwd ? 5 : 0);
-  const reqs = S.reqs;
-  const dels = S.nodes.filter(n => n.state === "green").length;
+  const ET = endingText(e);
+  const selfDel = S.nodes.filter(n => n.state === "green" && n.how === "self").length;
+  const reqDel = S.nodes.filter(n => n.state === "green" && n.how === "req").length;
+  const left = S.nodes.filter(n => n.state !== "green");
   stage.innerHTML = `<div class="ending">
     <div class="code">${e}<img class="sprite" src="${IMG[E.img]}" alt=""><small>${E.t}</small></div>
     <section class="panel">
       <div class="eyebrow">장면 6 · 엔딩</div>
-      <div class="quote">${E.q}</div>
-      <p><b>탐험대장 한결:</b> "${E.guide}"</p>
+      <div class="quote">${ET.q}</div>
+      <p><b>탐험대장 한결:</b> "${ET.guide}"</p>
       <div class="stats">
         <div class="stat"><b style="${reactText().length > 5 ? "font-size:18px;font-family:var(--f-display)" : ""}">${reactText()}</b><span>내 10초 반응</span></div>
         <div class="stat"><b>${mine}</b><span>내 반응이 만든 알림 (전체 ${notiTotal()}개 중)</span></div>
         <div class="stat"><b>${remaining()}</b><span>남은 점</span></div>
-        <div class="stat"><b>${reqs} / ${dels}</b><span>요청·신고 보낸 수 / 삭제 완료 수</span></div>
+        <div class="stat"><b>${selfDel} / ${reqDel}</b><span>내가 직접 지운 곳 / 요청해서 지워진 곳</span></div>
       </div>
+      ${left.length ? `<div class="leftlist"><b>아직 영상이 남은 곳 ${left.length}군데</b><ul style="margin:4px 0 0;padding-left:20px">${Object.values(left.reduce((m, n) => { const k = n.label + "|" + leftNote(n); (m[k] = m[k] || { n, c: 0 }).c++; return m; }, {})).map(({ n, c }) => `<li><b>${esc(n.label)}${c > 1 ? ` ${c}곳` : ""}</b> · ${leftNote(n)}</li>`).join("")}</ul></div>` : ""}
       ${tenNote() ? `<p>${tenNote()}</p>` : ""}
       <div class="ask"><div class="eyebrow">토론 질문</div>${E.ask}</div>
       <h3 style="margin-top:18px">오늘의 학습 요소</h3>
