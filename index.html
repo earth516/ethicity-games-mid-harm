@@ -351,8 +351,11 @@ body.photo-lab .lab { background: var(--labbg) center / cover; }
 .ap i { width: 22px; height: 28px; border: 3px solid var(--ink); background: var(--yolk); display: block; }
 .ap i.used { background: var(--paper-2); }
 .turninfo { font-family: var(--f-code); font-size: 13px; }
+.vid.gone { display: flex; align-items: center; justify-content: center; aspect-ratio: auto; min-height: 64px; background: #eef0ee; border: 2px dashed #9aa39a; color: #6b746b; font-family: var(--f-display); font-size: 17px; cursor: pointer; }
+.vid.gone > * { position: static; }
+.delnote { margin: 6px 0 0; padding: 7px 10px; font-size: 13.5px; line-height: 1.45; background: #fde4e0; border: 2px solid #d94a3a; color: #8c1d14; max-width: 230px; }
 .spreadinfo { font-family: var(--f-display); font-size: 15px; padding: 3px 10px; border: 2px solid var(--ink); background: #fff7e6; white-space: nowrap; }
-.spreadinfo.hot { background: #fde4e0; border-color: #d94a3a; color: #b3261e; animation: spreadPulse 1.2s ease-in-out infinite; }
+.spreadinfo.urgent { background: #fde4e0; border-color: #d94a3a; color: #b3261e; animation: spreadPulse 1.2s ease-in-out infinite; }
 @keyframes spreadPulse { 50% { box-shadow: 0 0 0 4px rgba(217,74,58,.25); } }
 .stopask { border-color: #c98a12 !important; background: #fff7e6 !important; }
 .leftlist { margin: 10px 0 0; padding: 10px 14px; border: 2px dashed var(--ink); background: #fff; }
@@ -496,7 +499,7 @@ let demoReact = "skip";
 const blank = () => ({
   scene: 0, student: null,
   r: { fwd: null, like: false, save: false, stop: false, timedOut: false },
-  notiCleared: 0, help: null, triedDelete: false, reported: false, clues: [], miss: 0,
+  notiCleared: 0, help: null, triedDelete: false, meDeleted: false, reported: false, clues: [], miss: 0,
   nodes: [], reqs: 0, reports: 0, stopAsk: false, turn: 0, ap: 6, teacher: false, skipSpread: false, log: [], sel: null, mapDone: false,
   ask: null, postPick: null, phraseTries: 0, Q: false, M: false,
   caseId: null, refl: {}
@@ -730,6 +733,7 @@ function login() {
 function sPrologue() {
   talk([
     { who: "guide", text: `어서 와, <b>${esc(nick())}</b>! 오늘 탐험할 윤리 요건은 <b>침해금지</b>야. AI가 누군가를 다치게 할 때, 우리는 무엇을 할 수 있을까?` },
+    { who: "guide", text: "오늘 이야기의 제목은 <b>'37개의 알림'</b>이야. 다음 날 아침, 한 친구의 휴대폰에 <b>최대 37개</b>의 알림이 쌓이거든. 단톡방에서 누가 웃고, 공감하고, 퍼 나를 때마다 그 친구에게는 <b>알림이 하나씩</b> 늘어나. 그중 몇 개가 쌓일지는 <b>너의 10초</b>에도 달려 있어." },
     { who: "guide", text: "곧 휴대폰에 메시지 하나가 올 거야. <b>10초</b> 안에 반응해야 해. 정답은 없어. <b>평소 너라면 했을 대로</b> 눌러 줘.", btn: "휴대폰 보기 ▶" }
   ], () => go(2));
 }
@@ -1039,19 +1043,26 @@ function yhChat() {
   const openMenu = () => {
     if ($("#mn")) return;
     $("#scr").insertAdjacentHTML("beforeend", `<div class="menu" id="mn">
-      <button data-m="me">나에게서만 삭제</button>
+      ${S.meDeleted ? "" : `<button data-m="me">나에게서만 삭제</button>`}
       <button data-m="all" class="locked">모두에게서 삭제 🔒</button>
       <button data-m="rep">신고하기</button>
       <button data-m="x">닫기</button></div>`);
     $$("#mn button").forEach(b => b.onclick = () => {
       const m = b.dataset.m; $("#mn").remove();
-      if (m === "me") toast("내 화면에서만 사라졌어요. 다른 27명에게는 그대로예요.");
+      if (m === "me") { S.meDeleted = true; showMeDeleted(); toast("내 화면에서만 사라졌어요. 다른 27명에게는 그대로예요."); }
       if (m === "all") { S.triedDelete = true; toast("게시자(준서)나 방장(도윤)만 모두에게서 지울 수 있어요."); }
       if (m === "rep") { S.reported = true; toast("신고가 접수되었습니다. 처리까지 시간이 걸릴 수 있어요."); }
       check();
     });
   };
-  $("#v2").onclick = openMenu;
+  const showMeDeleted = () => {
+    const v = $("#v2"); if (!v || v.classList.contains("gone")) return;
+    v.outerHTML = `<button class="vid gone" id="v2" aria-label="삭제된 메시지 · 눌러서 메뉴 열기"><span>🗑 [삭제되었습니다]</span></button>`;
+    $("#v2-r").insertAdjacentHTML("afterend", `<p class="delnote">⚠ <b>나에게서만</b> 지워졌어요.<br>나머지 대화방의 학생들(27명)에게는 <b>아직도 보입니다.</b></p>`);
+    $("#v2").onclick = openMenu;
+  };
+  if (S.meDeleted) showMeDeleted();
+  if (!S.meDeleted) $("#v2").onclick = openMenu;
   $("#toRooms").onclick = () => {
     const rooms = [["1-3 우리반", "영상 있음", false], ["2반 단톡방", "들어갈 수 없음", true], ["과학탐구반", "들어갈 수 없음", true], ["친구들 개인 대화", "어디로 전달됐는지 모름", true]];
     $("#chat").innerHTML = `<div class="rooms">${rooms.map(([n, s, l]) => `<div class="roomrow ${l ? "lock" : ""}">${n}<span class="hint">${l ? "🔒 " : ""}${s}</span></div>`).join("")}
@@ -1281,7 +1292,7 @@ function spreadInfo() {
   const t = nextSpread();
   if (!t) return `<span class="spreadinfo">더 퍼지지 않음 · 종까지 ${6 - S.turn}턴</span>`;
   const k = t - S.turn;
-  return `<span class="spreadinfo ${k === 1 && !S.skipSpread ? "hot" : ""}">${S.skipSpread ? "🛡 다음 확산은 선생님 공지로 막힘" : `⚠ 다음 확산까지 ${k}턴`}</span>`;
+  return `<span class="spreadinfo ${k === 1 && !S.skipSpread ? "urgent" : ""}">${S.skipSpread ? "🛡 다음 확산은 선생님 공지로 막힘" : `⚠ 다음 확산까지 ${k}턴`}</span>`;
 }
 function renderMap() {
   const N = S.nodes;
